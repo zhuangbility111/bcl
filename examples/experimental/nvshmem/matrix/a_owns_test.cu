@@ -1,11 +1,11 @@
 
 #define __thrust_compiler_fence() __sync_synchronize()
-#include <cusp/io/matrix_market.h>
-#include <cusp/csr_matrix.h>
-#include <cusp/array2d.h>
-#include <cusp/multiply.h>
-#include <cusp/array2d.h>
-#include <cusp/print.h>
+// #include <cusp/io/matrix_market.h>
+// #include <cusp/csr_matrix.h>
+// #include <cusp/array2d.h>
+// #include <cusp/multiply.h>
+// #include <cusp/array2d.h>
+// #include <cusp/print.h>
 
 #include <bcl/bcl.hpp>
 #include <bcl/backends/experimental/nvshmem/backend.hpp>
@@ -21,7 +21,7 @@
 #include <unordered_map>
 
 #include <chrono>
-#include <essl.h>
+// #include <essl.h>
 
 int main(int argc, char** argv) {
   BCL::init(16);

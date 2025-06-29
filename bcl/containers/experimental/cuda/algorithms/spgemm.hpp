@@ -3,7 +3,7 @@
 #include <bcl/bcl.hpp>
 #include "../sequential/cusparse_util.cuh"
 #include "../sequential/cusparse_error.cuh"
-#include "cusp_util.hpp"
+// #include "cusp_util.hpp"
 
 #include <bcl/containers/CircularQueue.hpp>
 #include <bcl/containers/experimental/ChecksumQueue.hpp>
@@ -464,77 +464,77 @@ void print_mtx(const std::string& fname, CudaCSRMatrix<T, index_type, Allocator>
   fclose(f);
 }
 
-template <typename T, typename index_type,
-          typename Allocator = BCL::cuda::bcl_allocator<T>>
-void gemm_cusp(BCL::cuda::SPMatrix<T, index_type>& a, BCL::cuda::SPMatrix<T, index_type>& b,
-               BCL::cuda::SPMatrix<T, index_type>& c) {
-  using timer_type = decltype(std::chrono::high_resolution_clock::now());
-  timer_type last_request;
-  for (size_t i = 0; i < c.grid_shape()[0]; i++) {
-    for (size_t j = 0; j < c.grid_shape()[1]; j++) {
-      if (c.tile_rank({i, j}) == BCL::rank()) {
-        size_t k_offset = i + j;
+// template <typename T, typename index_type,
+//           typename Allocator = BCL::cuda::bcl_allocator<T>>
+// void gemm_cusp(BCL::cuda::SPMatrix<T, index_type>& a, BCL::cuda::SPMatrix<T, index_type>& b,
+//                BCL::cuda::SPMatrix<T, index_type>& c) {
+//   using timer_type = decltype(std::chrono::high_resolution_clock::now());
+//   timer_type last_request;
+//   for (size_t i = 0; i < c.grid_shape()[0]; i++) {
+//     for (size_t j = 0; j < c.grid_shape()[1]; j++) {
+//       if (c.tile_rank({i, j}) == BCL::rank()) {
+//         size_t k_offset = i + j;
 
-        cusp::csr_matrix<index_type, T, cusp::device_memory>
-        result_c(c.tile_shape({i, j})[0], c.tile_shape({i, j}), 0);
+//         cusp::csr_matrix<index_type, T, cusp::device_memory>
+//         result_c(c.tile_shape({i, j})[0], c.tile_shape({i, j}), 0);
 
-        auto begin = std::chrono::high_resolution_clock::now();
-        last_request = begin;
-        auto buf_a = a.arget_tile_exp({i, k_offset % a.grid_shape()[1]});
-        auto buf_b = b.arget_tile_exp({k_offset % a.grid_shape()[1], j});
-        auto end = std::chrono::high_resolution_clock::now();
-        duration_issue += std::chrono::duration<double>(end - begin).count();
+//         auto begin = std::chrono::high_resolution_clock::now();
+//         last_request = begin;
+//         auto buf_a = a.arget_tile_exp({i, k_offset % a.grid_shape()[1]});
+//         auto buf_b = b.arget_tile_exp({k_offset % a.grid_shape()[1], j});
+//         auto end = std::chrono::high_resolution_clock::now();
+//         duration_issue += std::chrono::duration<double>(end - begin).count();
 
-        using csr_type = decltype(buf_a.get());
-        std::vector<csr_type> intermediate_results;
+//         using csr_type = decltype(buf_a.get());
+//         std::vector<csr_type> intermediate_results;
 
-        for (size_t k_ = 0; k_ < a.grid_shape()[1]; k_++) {
-          size_t k = (k_ + k_offset) % a.grid_shape()[1];
+//         for (size_t k_ = 0; k_ < a.grid_shape()[1]; k_++) {
+//           size_t k = (k_ + k_offset) % a.grid_shape()[1];
 
-          begin = std::chrono::high_resolution_clock::now();
-          auto local_a = buf_a.get();
-          auto local_b = buf_b.get();
-          end = std::chrono::high_resolution_clock::now();
-          duration_sync += std::chrono::duration<double>(end - begin).count();
-          double comm_time = std::chrono::duration<double>(end - last_request).count();
-          double bandwidth = comm_time;
+//           begin = std::chrono::high_resolution_clock::now();
+//           auto local_a = buf_a.get();
+//           auto local_b = buf_b.get();
+//           end = std::chrono::high_resolution_clock::now();
+//           duration_sync += std::chrono::duration<double>(end - begin).count();
+//           double comm_time = std::chrono::duration<double>(end - last_request).count();
+//           double bandwidth = comm_time;
 
-          if (k_+1 < a.grid_shape()[1]) {
-            begin = std::chrono::high_resolution_clock::now();
-            last_request = begin;
-            buf_a = a.arget_tile_exp({i, (k+1) % a.grid_shape()[1]});
-            buf_b = b.arget_tile_exp({(k+1) % a.grid_shape()[1], j});
-            end = std::chrono::high_resolution_clock::now();
-            duration_issue += std::chrono::duration<double>(end - begin).count();
-          }
+//           if (k_+1 < a.grid_shape()[1]) {
+//             begin = std::chrono::high_resolution_clock::now();
+//             last_request = begin;
+//             buf_a = a.arget_tile_exp({i, (k+1) % a.grid_shape()[1]});
+//             buf_b = b.arget_tile_exp({(k+1) % a.grid_shape()[1], j});
+//             end = std::chrono::high_resolution_clock::now();
+//             duration_issue += std::chrono::duration<double>(end - begin).count();
+//           }
 
-          begin = std::chrono::high_resolution_clock::now();
-          // auto result_c = spgemm_cusparse<T, index_type, Allocator>(local_a, local_b);
-          // TODO: is in-place accumulation during SPGEMM the best option?
-          spgemm_cusp(local_a, local_b, result_c);
+//           begin = std::chrono::high_resolution_clock::now();
+//           // auto result_c = spgemm_cusparse<T, index_type, Allocator>(local_a, local_b);
+//           // TODO: is in-place accumulation during SPGEMM the best option?
+//           spgemm_cusp(local_a, local_b, result_c);
 
-          end = std::chrono::high_resolution_clock::now();
-          duration_compute += std::chrono::duration<double>(end - begin).count();
-        }
-        // TODO: also add C block to this.
-        begin = std::chrono::high_resolution_clock::now();
+//           end = std::chrono::high_resolution_clock::now();
+//           duration_compute += std::chrono::duration<double>(end - begin).count();
+//         }
+//         // TODO: also add C block to this.
+//         begin = std::chrono::high_resolution_clock::now();
 
-        auto c_block = get_view<T, index_type>(result_c);
+//         auto c_block = get_view<T, index_type>(result_c);
 
-        if (!c_block.empty()) {
-          c.assign_tile({i, j}, c_block);
-        }
-        end = std::chrono::high_resolution_clock::now();
-        duration_accumulate += std::chrono::duration<double>(end - begin).count();
-      }
-    }
-  }
+//         if (!c_block.empty()) {
+//           c.assign_tile({i, j}, c_block);
+//         }
+//         end = std::chrono::high_resolution_clock::now();
+//         duration_accumulate += std::chrono::duration<double>(end - begin).count();
+//       }
+//     }
+//   }
 
-  auto begin = std::chrono::high_resolution_clock::now();
-  c.rebroadcast_tiles();
-  auto end = std::chrono::high_resolution_clock::now();
-  duration_barrier += std::chrono::duration<double>(end - begin).count();
-}
+//   auto begin = std::chrono::high_resolution_clock::now();
+//   c.rebroadcast_tiles();
+//   auto end = std::chrono::high_resolution_clock::now();
+//   duration_barrier += std::chrono::duration<double>(end - begin).count();
+// }
 
 
 template <typename T, typename index_type,

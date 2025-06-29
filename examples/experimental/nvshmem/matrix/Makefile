@@ -1,6 +1,6 @@
-// SPDX-FileCopyrightText: 2021 Benjamin Brock
-//
-// SPDX-License-Identifier: BSD-3-Clause
+# SPDX-FileCopyrightText: 2021 Benjamin Brock
+#
+# SPDX-License-Identifier: BSD-3-Clause
 
 # Makefile for some simple examples in this directory.
 # On bridges, you need to run `source prep.sh` to set
@@ -8,7 +8,8 @@
 
 BCL_HOME=$(PWD)/../../../../
 
-SOURCES += $(wildcard *.cu)
+# SOURCES += $(wildcard *.cu)
+SOURCES = spmm_test.cu
 TARGETS := $(patsubst %.cu, %, $(SOURCES))
 
 CXX=nvcc
@@ -22,13 +23,14 @@ NSPARSE_FLAGS = -I/ccs/home/b2v/src/research/nsparse/cuda-cpp/inc -I$(CUDAPATH)/
 
 CUSPARSE_FLAGS = -lcusparse -lcublas
 
-CUSP_FLAGS = -I/autofs/nccs-svm1_home2/b2v/pkg/cusplibrary
+CUSP_FLAGS = -I/home/users/chen.zhuang/software/cusplibrary/
 
-NVSHMEM_FLAGS=-DNVSHMEM_TARGET -arch=sm_70 -ccbin g++  -I$(CUDA_HOME)/include -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -DENABLE_MPI_SUPPORT -rdc=true  -L$(NVSHMEM_HOME)/lib -lnvshmem -lcuda -L$(CUDA_HOME)/lib64 -lcudart -L$(MPI_HOME)/lib -lmpi_ibm -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -lutil -lcublas_static -lculibos -lcublasLt_static -I$(OLCF_ESSL_ROOT)/include -L$(OLCF_ESSL_ROOT)/lib64 -lessl
+NVSHMEM_FLAGS=-DNVSHMEM_TARGET -arch=sm_70 -ccbin g++ -I$(CUDA_HOME)/include -I$(NVSHMEM_HOME)/include -I$(MPI_HOME)/include -DENABLE_MPI_SUPPORT -rdc=true  -L$(NVSHMEM_HOME)/lib -lmpi -lnvshmem -lcuda -L$(CUDA_HOME)/lib64 -lcudart -L$(MPI_HOME)/lib -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -lutil -lcublas_static -lculibos -lcublasLt_static
 
-SHMEM_FLAGS=-lpthread -L/autofs/nccs-svm1_sw/summit/.swci/1-compute/opt/spack/20180914/linux-rhel7-ppc64le/gcc-8.1.1/spectrum-mpi-10.3.1.2-20200121-chae23sgwacfeot7vxkpfboz6wao2c33/lib -loshmem -lmpi_ibm
+# SHMEM_FLAGS=-lpthread -L/autofs/nccs-svm1_sw/summit/.swci/1-compute/opt/spack/20180914/linux-rhel7-ppc64le/gcc-8.1.1/spectrum-mpi-10.3.1.2-20200121-chae23sgwacfeot7vxkpfboz6wao2c33/lib -loshmem -lmpi_ibm
+SHMEM_FLAGS=-lpthread 
 
-CXXFLAGS = -std=c++14 -O3 -DSHMEM $(SHMEM_FLAGS) -I$(BCL_HOME) --expt-extended-lambda $(NVSHMEM_FLAGS) $(CUSPARSE_FLAGS) $(CUSP_FLAGS)
+CXXFLAGS = -std=c++17 -O3 -DSHMEM $(SHMEM_FLAGS) -I$(BCL_HOME) --expt-extended-lambda $(NVSHMEM_FLAGS) $(CUSPARSE_FLAGS) $(CUSP_FLAGS)
 
 all: $(TARGETS)
 
