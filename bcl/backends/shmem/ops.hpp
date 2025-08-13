@@ -30,14 +30,14 @@ namespace BCL {
   template <typename T>
   struct abstract_swap : public virtual abstract_op<T>{};
 
-  template <typename T> struct swap;
+  // template <typename T> struct swap;
 
-  template <>
-  struct swap<unsigned long long> : public abstract_swap<unsigned long long>, public abstract_ulonglong, public atomic_op<unsigned long long> {
-    unsigned long long shmem_atomic_op(const GlobalPtr<unsigned long long> ptr, const unsigned long long& val) const {
-      return shmem_ulonglong_atomic_swap(ptr.rptr(), val, ptr.rank);
-    }
-  };
+  // template <>
+  // struct swap<unsigned long long> : public abstract_swap<unsigned long long>, public abstract_ulonglong, public atomic_op<unsigned long long> {
+  //   unsigned long long shmem_atomic_op(const GlobalPtr<unsigned long long> ptr, const unsigned long long& val) const {
+  //     return shmem_ulonglong_atomic_swap(ptr.rptr(), val, ptr.rank);
+  //   }
+  // };
 
   template <typename T>
   struct abstract_xor_: public virtual abstract_op<T>{};

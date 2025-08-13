@@ -399,8 +399,10 @@ void gemm(BCL::cuda::SPMatrix<T, index_type>& a,
         size_t k_offset = i + j;
 
         auto begin = std::chrono::high_resolution_clock::now();
-        auto buf_a = a.arget_tile_exp({i, k_offset % a.grid_shape()[1]});
-        auto buf_b = b.arget_tile_exp({k_offset % a.grid_shape()[1], j});
+        // auto buf_a = a.arget_tile_exp({i, k_offset % a.grid_shape()[1]});
+        auto buf_a = a.arget_tile({i, k_offset % a.grid_shape()[1]});
+        // auto buf_b = b.arget_tile_exp({k_offset % a.grid_shape()[1], j});
+        auto buf_b = b.arget_tile({k_offset % a.grid_shape()[1], j});
         auto end = std::chrono::high_resolution_clock::now();
         duration_issue += std::chrono::duration<double>(end - begin).count();
         last_issue = begin;
@@ -422,8 +424,10 @@ void gemm(BCL::cuda::SPMatrix<T, index_type>& a,
 
           if (k_+1 < a.grid_shape()[1]) {
             auto begin = std::chrono::high_resolution_clock::now();
-            buf_a = a.arget_tile_exp({i, (k+1) % a.grid_shape()[1]});
-            buf_b = b.arget_tile_exp({(k+1) % a.grid_shape()[1], j});
+            // buf_a = a.arget_tile_exp({i, (k+1) % a.grid_shape()[1]});
+            buf_a = a.arget_tile({i, (k+1) % a.grid_shape()[1]});
+            // buf_b = b.arget_tile_exp({(k+1) % a.grid_shape()[1], j});
+            buf_b = b.arget_tile({(k+1) % a.grid_shape()[1], j});
             auto end = std::chrono::high_resolution_clock::now();
             duration_issue += std::chrono::duration<double>(end - begin).count();
             last_issue = begin;
@@ -572,7 +576,8 @@ void gemm_bowns(BCL::cuda::SPMatrix<T, index_type>& a, BCL::cuda::Matrix<T>& b,
         size_t i_offset = k + j;
         // size_t i_offset = 0;
         auto begin = std::chrono::high_resolution_clock::now();
-        auto buf_a = a.arget_tile_exp({i_offset % a.grid_shape()[0], k});
+        // auto buf_a = a.arget_tile_exp({i_offset % a.grid_shape()[0], k});
+        auto buf_a = a.arget_tile({i_offset % a.grid_shape()[0], k});
         auto end = std::chrono::high_resolution_clock::now();
         duration_issue += std::chrono::duration<double>(end - begin).count();
         for (size_t i_ = 0; i_ < a.grid_shape()[0]; i_++) {
@@ -587,7 +592,8 @@ void gemm_bowns(BCL::cuda::SPMatrix<T, index_type>& a, BCL::cuda::Matrix<T>& b,
 
           if (i_ + 1 < a.grid_shape()[0]) {
             begin = std::chrono::high_resolution_clock::now();
-            buf_a = a.arget_tile_exp({(i+1) % a.grid_shape()[0], k});
+            // buf_a = a.arget_tile_exp({(i+1) % a.grid_shape()[0], k});
+            buf_a = a.arget_tile({(i+1) % a.grid_shape()[0], k});
             end = std::chrono::high_resolution_clock::now();
             duration_issue += std::chrono::duration<double>(end - begin).count();
           }
@@ -755,9 +761,7 @@ void gemm_aowns_onesided(BCL::cuda::SPMatrix<T, index_type>& a, BCL::cuda::Matri
 
 
   std::vector<BCL::cuda::CudaMatrix<T, Allocator>> c_mats;
-
-  // std::vector<MPI_Request> requests;
-  std::vector<MPI_Request> requests(c.grid_shape()[0], MPI_REQUEST_NULL);
+  c_mats.reserve(c.grid_shape()[1]);
 
   for (size_t i = 0; i < a.grid_shape()[0]; i++) {
     for (size_t k = 0; k < a.grid_shape()[1]; k++) {
@@ -770,7 +774,8 @@ void gemm_aowns_onesided(BCL::cuda::SPMatrix<T, index_type>& a, BCL::cuda::Matri
 
         size_t j_offset = i + k;
         auto begin = std::chrono::high_resolution_clock::now();
-        auto buf_b = b.arget_tile_exp({k, j_offset % b.grid_shape()[1]});
+        // auto buf_b = b.arget_tile_exp({k, j_offset % b.grid_shape()[1]});
+        auto buf_b = b.arget_tile({k, j_offset % b.grid_shape()[1]});
         auto end = std::chrono::high_resolution_clock::now();
         duration_issue += std::chrono::duration<double>(end - begin).count();
         for (size_t j_ = 0; j_ < b.grid_shape()[1]; j_++) {
@@ -787,7 +792,8 @@ void gemm_aowns_onesided(BCL::cuda::SPMatrix<T, index_type>& a, BCL::cuda::Matri
 
           if (j_ + 1 < b.grid_shape()[1]) {
             begin = std::chrono::high_resolution_clock::now();
-            buf_b = b.arget_tile_exp({k, (j+1) % b.grid_shape()[1]});
+            // buf_b = b.arget_tile_exp({k, (j+1) % b.grid_shape()[1]});
+            buf_b = b.arget_tile({k, (j+1) % b.grid_shape()[1]});
             end = std::chrono::high_resolution_clock::now();
             duration_issue += std::chrono::duration<double>(end - begin).count();
           }
@@ -804,6 +810,8 @@ void gemm_aowns_onesided(BCL::cuda::SPMatrix<T, index_type>& a, BCL::cuda::Matri
       }
     }
   }
+  BCL::barrier();
+  fprintf(stderr, "%lu finished initial multiplies...\n", BCL::rank());
   queue_type& my_queue = queues[BCL::rank()];
   auto begin = std::chrono::high_resolution_clock::now();
   if (c.my_num_tiles() > 0) {
@@ -816,6 +824,7 @@ void gemm_aowns_onesided(BCL::cuda::SPMatrix<T, index_type>& a, BCL::cuda::Matri
       local_c += x;
     }
   }
+  fprintf(stderr, "%lu finished accumulating!\n", BCL::rank());
   auto end = std::chrono::high_resolution_clock::now();
   duration_accumulate += std::chrono::duration<double>(end - begin).count();
   begin = std::chrono::high_resolution_clock::now();

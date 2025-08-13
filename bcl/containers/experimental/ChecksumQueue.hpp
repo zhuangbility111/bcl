@@ -354,8 +354,8 @@ struct ChecksumQueue {
       //while someone is still writing. This is safe.
       //If this prints with a high size-value and sense-disamb true, then someone has
       //pushed to the data before you popped it. This is deadly.
-      //printf("Read incorrect value! Retrying. (Sense-disambiguated: %d) (Size: %d)\n",
-      //	hd.hash == get_hash(hd.data, old_head+capacity()), tail_buf - old_head);
+      // fprintf(stderr, "%lu Read incorrect value! Retrying. (Sense-disambiguated: %d) (Size: %d)\n",
+      // 	BCL::rank(), hd.hash == get_hash(hd.data, old_head+capacity()), tail_buf - old_head);
       backoff.backoff();
     }
     //This is not reached.

@@ -163,8 +163,9 @@ public:
     return tuples_.end();
   }
 
-  std::pair<iterator, bool>
-  insert(value_type&& value) {
+  void insert(value_type&& value) {
+    tuples_.push_back(value);
+    /*
     auto&& [insert_index, insert_value] = value;
     for (auto iter = begin(); iter != end(); ++iter) {
       auto&& [index, v] = *iter;
@@ -174,6 +175,7 @@ public:
     }
     tuples_.push_back(value);
     return {--tuples_.end(), true};
+    */
   }
 
   template <class M>
@@ -288,6 +290,8 @@ mmread(std::string fname, bool one_indexed = true) {
   ss.str(buf);
   ss >> m >> n >> nnz;
 
+  fprintf(stderr, "Reading in matrix that is %d x %d and has %d nnz\n", m, n, nnz);
+
   // NOTE for symmetric matrices: `nnz` holds the number of stored values in
   // the matrix market file, while `matrix.nnz_` will hold the total number of
   // stored values (including "mirrored" symmetric values).
@@ -301,8 +305,34 @@ mmread(std::string fname, bool one_indexed = true) {
     TODO: reserve? (for general and for symmetric)
   */
 
+  auto begin = std::chrono::high_resolution_clock::now();
+
+  double last_report = 0;
+  double progress_interval = 5;
+
+  // NNZs completed, time
+  std::tuple<std::size_t, double> last_progress_check = {0, 0};
+
   size_type c = 0;
   while (std::getline(f, buf)) {
+
+    if (c % 10000 == 0) {
+      auto end = std::chrono::high_resolution_clock::now();
+      double duration = std::chrono::duration<double>(end - begin).count();
+      if (duration - last_report > progress_interval) {
+        auto&& [last_nnz, last_timestamp] = last_progress_check;
+        std::size_t nnz_in_interval = c - last_nnz;
+        double time_in_interval = duration - last_timestamp;
+        double parse_rate = nnz_in_interval / time_in_interval;
+        double estimated_time_left = (nnz - c) / parse_rate;
+        fprintf(stderr, "%lf elapsed, %d / %d (%lf%%) completed (interval: %d nnz in %lfs, %lf nz/s, estimated %lfs left)...\n",
+                duration, c, nnz, (double(c) / nnz) * 100, nnz_in_interval, time_in_interval, parse_rate, estimated_time_left);
+        last_nnz = c;
+        last_timestamp = duration;
+        last_report = duration;
+      }
+    }
+
     I i, j;
     T v;
     std::istringstream ss(buf);
@@ -348,6 +378,8 @@ mmread(std::string fname, bool one_indexed = true) {
                    }
                    return false;
                  };
+
+  fprintf(stderr, "Sorting the matrix...\n");
 
   std::sort(matrix.begin(), matrix.end(), sort_fn);
 

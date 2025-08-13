@@ -369,7 +369,10 @@ struct CSRMatrix {
 template <typename T, typename index_type, typename Allocator>
 void CSRMatrix<T, index_type, Allocator>::read_MatrixMarket(const std::string& fname, bool one_indexed) {
 
+  fprintf(stderr, "Calling mmread...\n");
   auto matrix = matrix_io::mmread<T, index_type>(fname, one_indexed);
+
+  fprintf(stderr, "Got the matrix read.\n");
 
   m_ = matrix.shape()[0];
   n_ = matrix.shape()[1];
@@ -379,6 +382,8 @@ void CSRMatrix<T, index_type, Allocator>::read_MatrixMarket(const std::string& f
   vals_.resize(nnz_);
 
   row_ptr_[0] = 0;
+
+  fprintf(stderr, "Creating a CSR...\n");
   
   size_type r = 0;
   size_type c = 0;

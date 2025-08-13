@@ -268,17 +268,20 @@ public:
   }
 
   __host__ auto arget_tile(matrix_dim idx) const {
-    using no_init = typename BCL::cuda::device_vector<T, BCL::cuda::bcl_allocator<T>>::no_init;
-    BCL::cuda::device_vector<T, BCL::cuda::bcl_allocator<T>> x(tile_size(idx), no_init{});
-    if (x.data() == nullptr) {
-      printf("%lu has nullptr x!\n", BCL::rank());
+    auto data = BCL::cuda::alloc<T>(tile_size(idx));
+    if (data == nullptr) {
+      printf("(%lu has nullptr x!\n", BCL::rank());
       assert(false);
     }
-    // BCL::cuda::memcpy(x.data(), tile_ptr(idx), sizeof(T) * tile_size(idx));
-    nvshmem_getmem_nbi(x.data(), tile_ptr(idx).rptr(), sizeof(T)*tile_size(idx),
+    CudaMatrix<T, BCL::cuda::bcl_allocator<T>, Indexing> x({tile_shape(idx)[0], tile_shape(idx)[1]},
+                                                           data.local());
+
+    nvshmem_getmem_nbi(data.rptr(), tile_ptr(idx).rptr(), sizeof(T)*tile_size(idx),
                        tile_ptr(idx).rank_);
-    return cuda_future<BCL::cuda::device_vector<T, BCL::cuda::bcl_allocator<T>>>
-                      (std::move(x), cuda_request());
+
+    return cuda_future<CudaMatrix<T, BCL::cuda::bcl_allocator<T>, Indexing>, cuda_request>
+                      (std::move(x),
+                       cuda_request());
   }
 
   __host__ auto arget_tile_exp(matrix_dim idx) const {
