@@ -27,8 +27,8 @@ int main(int argc, char** argv) {
   BCL::init(16);
   BCL::cuda::init();
 
-  using T = float;
-  using index_type = int64_t;
+  using T = double;
+  using index_type = int;
 
   bool verify_result = false;
 
@@ -67,8 +67,14 @@ int main(int argc, char** argv) {
     c.print_info();
   }
 
+  fflush(stdout);
+  BCL::barrier();
+  fflush(stdout);
+  BCL::barrier();
+
   using queue_type = BCL::ChecksumQueue<BCL::cuda::CudaMatrix_ptr<T>, BCL::djb2_hash<BCL::cuda::CudaMatrix_ptr<T>>>;
   std::vector<queue_type> queues;
+  queues.reserve(BCL::nprocs());
 
   for (size_t i = 0; i < BCL::nprocs(); i++) {
     queues.emplace_back(queue_type(i, a.grid_shape()[1]+8));
@@ -82,10 +88,18 @@ int main(int argc, char** argv) {
 
   BCL::cuda::barrier();
 
+  if (BCL::rank() == 0) {
+    fprintf(stderr, "Doing MatMul...\n");
+  }
+
   auto begin = std::chrono::high_resolution_clock::now();
   BCL::cuda::gemm_aowns_onesided(a, b, c, queues);
   BCL::cuda::barrier();
   auto end = std::chrono::high_resolution_clock::now();
+
+  if (BCL::rank() == 0) {
+    fprintf(stderr, "MatMul done.\n");
+  }
 
   double duration = std::chrono::duration<double>(end - begin).count();
 

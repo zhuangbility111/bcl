@@ -24,11 +24,13 @@
 #include <chrono>
 // #include <essl.h>
 
+#include "util.hpp"
+
 int main(int argc, char** argv) {
   BCL::init(16);
   BCL::cuda::init();
 
-  using T = float;
+  using T = double;
   using index_type = int;
 
   bool verify_result = false;
@@ -38,11 +40,13 @@ int main(int argc, char** argv) {
   // Number of vecs in SpMM (width of multi-vec, matrix)
   size_t num_vecs = std::atoi(argv[2]);
 
+  // get matrix shape by reading the file header (meta data)
   auto matrix_shape = BCL::matrix_io::matrix_info(fname);
   size_t m = matrix_shape.shape[0];
   size_t k = matrix_shape.shape[1];
   size_t n = num_vecs;
 
+  // get the tile shape for each processor based on the matrix shape
   BCL::print("Choosing blocks...\n");
   auto blocks = BCL::block_matmul(m, n, k);
 
@@ -158,7 +162,8 @@ int main(int argc, char** argv) {
       for (size_t j = 0; j < c.shape()[1]; j++) {
         size_t d_idx = i*c.shape()[1] + j;
         size_t l_idx = indexing_type().index(i, j, local_c.ld());
-        if (std::abs(distributed_c[d_idx] - local_data[l_idx]) > eps) {
+        // if (std::abs(distributed_c[d_idx] - local_data[l_idx]) > eps) {
+        if (!is_equal(T(distributed_c[d_idx]), T(local_data[l_idx]))) {
           // assert(false);
           if (print) {
             printf("O %2.2lf != %2.2lf ", distributed_c[d_idx], local_data[l_idx]);
@@ -191,6 +196,119 @@ int main(int argc, char** argv) {
       printf("***FAILED!***\n");
     }
   }
+
+  // Benchmark function to measure performance
+  auto benchmark_gemm = [&](int warmup_rounds, int run_rounds) {
+    BCL::print("Starting benchmark with %d warmup rounds and %d run rounds...\n", warmup_rounds, run_rounds);
+    
+    // Reset timing variables
+    BCL::cuda::duration_issue = 0.0;
+    BCL::cuda::duration_sync = 0.0;
+    BCL::cuda::duration_compute = 0.0;
+    BCL::cuda::duration_accumulate = 0.0;
+    BCL::cuda::duration_barrier = 0.0;
+    
+    // Warmup rounds
+    BCL::print("Warmup phase...\n");
+    for (int i = 0; i < warmup_rounds; i++) {
+      c = 0;  // Reset result matrix
+      BCL::cuda::barrier();
+      BCL::cuda::gemm(a, b, c);
+      BCL::cuda::barrier();
+    }
+    
+    // Reset timing variables after warmup
+    BCL::cuda::duration_issue = 0.0;
+    BCL::cuda::duration_sync = 0.0;
+    BCL::cuda::duration_compute = 0.0;
+    BCL::cuda::duration_accumulate = 0.0;
+    BCL::cuda::duration_barrier = 0.0;
+    
+    // Benchmark runs
+    BCL::print("Benchmark phase...\n");
+    std::vector<double> run_times;
+    
+    for (int i = 0; i < run_rounds; i++) {
+      c = 0;  // Reset result matrix
+      BCL::cuda::barrier();
+      
+      auto run_begin = std::chrono::high_resolution_clock::now();
+      BCL::cuda::gemm(a, b, c);
+      BCL::cuda::barrier();
+      auto run_end = std::chrono::high_resolution_clock::now();
+      
+      double run_duration = std::chrono::duration<double>(run_end - run_begin).count();
+      run_times.push_back(run_duration);
+      
+      if (BCL::rank() == 0) {
+        printf("Run %d: %lf s\n", i + 1, run_duration);
+      }
+    }
+    
+    // Calculate statistics
+    double total_time = 0.0;
+    double min_time = run_times[0];
+    double max_time = run_times[0];
+    
+    for (double time : run_times) {
+      total_time += time;
+      min_time = std::min(min_time, time);
+      max_time = std::max(max_time, time);
+    }
+    
+    double avg_time = total_time / run_rounds;
+    
+    // Calculate standard deviation
+    double variance = 0.0;
+    for (double time : run_times) {
+      variance += (time - avg_time) * (time - avg_time);
+    }
+    variance /= run_rounds;
+    double std_dev = sqrt(variance);
+    
+    // Aggregate timing statistics across all processes
+    double avg_issue = BCL::cuda::duration_issue / run_rounds;
+    double avg_sync = BCL::cuda::duration_sync / run_rounds;
+    double avg_compute = BCL::cuda::duration_compute / run_rounds;
+    double avg_accumulate = BCL::cuda::duration_accumulate / run_rounds;
+    double avg_barrier = BCL::cuda::duration_barrier / run_rounds;
+    
+    // Reduce to get global statistics
+    double global_avg_time = BCL::allreduce(avg_time, std::plus<double>{}) / BCL::nprocs();
+    double global_min_time = BCL::allreduce(min_time, BCL::min<double>{});
+    double global_max_time = BCL::allreduce(max_time, BCL::max<double>{});
+    double global_std_dev = BCL::allreduce(std_dev, std::plus<double>{}) / BCL::nprocs();
+    
+    double global_avg_issue = BCL::allreduce(avg_issue, std::plus<double>{}) / BCL::nprocs();
+    double global_avg_sync = BCL::allreduce(avg_sync, std::plus<double>{}) / BCL::nprocs();
+    double global_avg_compute = BCL::allreduce(avg_compute, std::plus<double>{}) / BCL::nprocs();
+    double global_avg_accumulate = BCL::allreduce(avg_accumulate, std::plus<double>{}) / BCL::nprocs();
+    double global_avg_barrier = BCL::allreduce(avg_barrier, std::plus<double>{}) / BCL::nprocs();
+    
+    // Print benchmark results
+    if (BCL::rank() == 0) {
+      printf("\n=== Benchmark Results ===\n");
+      printf("Warmup rounds: %d\n", warmup_rounds);
+      printf("Benchmark runs: %d\n", run_rounds);
+      printf("Average time: %lf s (std dev: %lf s)\n", global_avg_time, global_std_dev);
+      printf("Min time: %lf s\n", global_min_time);
+      printf("Max time: %lf s\n", global_max_time);
+      printf("\nDetailed timing breakdown (averages):\n");
+      printf("  Issue time: %lf s\n", global_avg_issue);
+      printf("  Sync time: %lf s\n", global_avg_sync);
+      printf("  Compute time: %lf s\n", global_avg_compute);
+      printf("  Accumulate time: %lf s\n", global_avg_accumulate);
+      printf("  Barrier time: %lf s\n", global_avg_barrier);
+      printf("========================\n");
+    }
+    
+    return global_avg_time;
+  };
+  
+  // Run benchmark with 5 warmup rounds and 10 measurement rounds
+  double benchmark_time = benchmark_gemm(5, 10);
+  
+  BCL::print("Benchmark completed. Average performance: %lf s\n", benchmark_time);
 
   BCL::finalize();
   return 0;
