@@ -696,7 +696,7 @@ void spmm_cusparse(AMatrixType& a,
     algorithm = CUSPARSE_SPMM_CSR_ALG2;
   } else if (std::is_same<bmatrix_indexing, ColumnMajorIndexing>::value) {
     order = CUSPARSE_ORDER_COL;
-    algorithm = CUSPARSE_SPMM_CSR_ALG2; // 推荐用新API的默认算法
+    algorithm = CUSPARSE_SPMM_CSR_ALG1; // 推荐用新API的默认算法
   } 
 
   cusparseSpMatDescr_t a_cusparse;
