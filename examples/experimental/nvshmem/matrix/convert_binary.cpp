@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
   std::string input_fname = argv[1];
   std::string output_fname = argv[2];
 
-  using T = double;
+  using T = float;
   using I = int;
 
   printf("Reading Matrix Market file. This may take a while...\n");
