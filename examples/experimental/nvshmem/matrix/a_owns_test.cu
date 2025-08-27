@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
   BCL::init(16);
   BCL::cuda::init();
 
-  using T = double;
+  using T = float;
   using index_type = int;
 
   bool verify_result = false;

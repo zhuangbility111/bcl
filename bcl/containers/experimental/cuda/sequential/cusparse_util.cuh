@@ -673,9 +673,9 @@ void spmm_cusparse(AMatrixType& a,
   using T = typename AMatrixType::value_type;
   using Allocator = BCL::cuda::bcl_allocator<T>;
   // using Allocator = typename AMatrix::allocator_type;
-  // static_assert(std::is_same<typename AMatrixType::value_type, float>::value);
-  // static_assert(std::is_same<typename BMatrixType::value_type, float>::value);
-  // static_assert(std::is_same<typename CMatrixType::value_type, float>::value);
+  static_assert(std::is_same<typename AMatrixType::value_type, float>::value);
+  static_assert(std::is_same<typename BMatrixType::value_type, float>::value);
+  static_assert(std::is_same<typename CMatrixType::value_type, float>::value);
   using index_type = typename AMatrixType::index_type;
   // static_assert(std::is_same<typename AMatrixType::index_type, int32_t>::value);
   cusparseHandle_t& handle = bcl_cusparse_handle_;
@@ -705,22 +705,22 @@ void spmm_cusparse(AMatrixType& a,
                     a.rowptr_data(), a.colind_data(), a.values_data(),
                     cusparse_type_t<index_type>::cusparse_type(),
                     cusparse_type_t<index_type>::cusparse_type(),
-                    // CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F);
-                    CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
+                    CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F);
+                    // CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F);
   BCL::cuda::throw_cusparse(status);
   cusparseDnMatDescr_t b_cusparse;
 
   status = 
   cusparseCreateDnMat(&b_cusparse, b.m(), b.n(), b.ld(),
-                      // b.data(), CUDA_R_32F, order);
-                      b.data(), CUDA_R_64F, order);
+                      b.data(), CUDA_R_32F, order);
+                      // b.data(), CUDA_R_64F, order);
   BCL::cuda::throw_cusparse(status);
 
   cusparseDnMatDescr_t c_cusparse;
   status = 
   cusparseCreateDnMat(&c_cusparse, c.m(), c.n(), c.ld(),
-                      // c.data(), CUDA_R_32F, order);
-                      c.data(), CUDA_R_64F, order);
+                      c.data(), CUDA_R_32F, order);
+                      // c.data(), CUDA_R_64F, order);
   BCL::cuda::throw_cusparse(status);
 
   size_t bufferSize;
@@ -733,8 +733,8 @@ void spmm_cusparse(AMatrixType& a,
                           b_cusparse,
                           &beta,
                           c_cusparse,
-                          // CUDA_R_32F,
-                          CUDA_R_64F,
+                          CUDA_R_32F,
+                          // CUDA_R_64F,
                           algorithm,
                           &bufferSize);
   BCL::cuda::throw_cusparse(status);
@@ -750,8 +750,8 @@ void spmm_cusparse(AMatrixType& a,
                b_cusparse,
                &beta,
                c_cusparse,
-              //  CUDA_R_32F,
-               CUDA_R_64F,
+               CUDA_R_32F,
+              //  CUDA_R_64F,
                algorithm,
                externalBuffer);
   BCL::cuda::throw_cusparse(status);
